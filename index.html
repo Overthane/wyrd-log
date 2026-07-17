@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>askr</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Pirata+One&display=swap');
+
+  :root {
+    --paper: #131210;
+    --card: #1a1815;
+    --ink: #e7e2d4;
+    --ink-soft: #948e80;
+    --ink-faint: #8a8474;
+    --line: #2c2822;
+    --done: #85a179;
+    --done-soft: #263329;
+    --press: #ab98c7;
+    --press-soft: #302940;
+    --empty: #221e18;
+    --bad: #b98a7a;
+    --radius: 14px;
+  }
+
+  * { box-sizing: border-box }
+
+  body { margin: 0 }
+
+  #app {
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 28px 16px;
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 22px 22px 18px;
+    width: 100%;
+    max-width: 380px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+  }
+
+  .head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+
+  .monthlabel {
+    font-family: 'Pirata One', Georgia, serif;
+    font-size: 26px;
+    letter-spacing: 0.03em;
+  }
+
+  .navbtn {
+    background: none;
+    border: none;
+    color: var(--ink-soft);
+    font-size: 20px;
+    line-height: 1;
+    padding: 6px 10px;
+    cursor: pointer;
+    border-radius: 8px;
+  }
+  .navbtn:hover { background: var(--empty) }
+  .navbtn:disabled { opacity: 0.3; cursor: default }
+  .navbtn:disabled:hover { background: none }
+
+  .weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    margin-bottom: 4px;
+  }
+  .weekdays div {
+    text-align: center;
+    font-size: 11px;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding-bottom: 4px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    grid-auto-rows: 44px;
+    gap: 4px;
+  }
+
+  .cell {
+    position: relative;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    color: var(--ink-soft);
+    cursor: pointer;
+    user-select: none;
+    background: transparent;
+    border: none;
+  }
+  .cell.pad { visibility: hidden; cursor: default }
+  .cell.future { color: var(--ink-faint); cursor: default }
+  .cell.locked { cursor: wait; opacity: 0.6 }
+
+  .cell .num { position: relative; z-index: 1 }
+
+  .cell.state-0 .fill { background: var(--empty) }
+  .cell.state-1 .fill { background: var(--done-soft) }
+  .cell.state-1 .num { color: var(--ink) }
+  .cell.state-2 .fill { background: var(--done-soft); box-shadow: inset 0 0 0 2px var(--press) }
+  .cell.state-2 .num { color: var(--ink) }
+
+  .fill { position: absolute; inset: 2px; border-radius: 8px }
+
+  .cell.today .fill { box-shadow: inset 0 0 0 1.5px var(--ink-faint) }
+  .cell.state-2.today .fill { box-shadow: inset 0 0 0 2px var(--press) }
+
+  .pressmark {
+    position: absolute;
+    bottom: 4px;
+    right: 6px;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--press);
+    z-index: 1;
+  }
+
+  .legend {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    justify-content: center;
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    margin-top: 14px;
+  }
+  .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; margin-right: 4px; vertical-align: middle }
+  .dot.done { background: var(--done) }
+  .dot.press { background: var(--press) }
+
+  .stats {
+    display: flex;
+    margin-top: 16px;
+    border-top: 1px solid var(--line);
+    padding-top: 14px;
+  }
+  .stat { flex: 1; text-align: center }
+  .statnum { font-family: 'Pirata One', Georgia, serif; font-size: 30px }
+  .statlabel {
+    font-size: 10.5px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: 2px;
+  }
+
+  .hint { text-align: center; font-size: 11.5px; color: var(--ink-faint); margin-top: 14px }
+
+  .syncline {
+    text-align: center;
+    font-size: 10.5px;
+    color: var(--ink-faint);
+    margin-top: 8px;
+    min-height: 14px;
+    cursor: default;
+  }
+  .syncline.error { color: var(--bad); cursor: pointer; text-decoration: underline }
+
+  .settings { margin-top: 16px; font-size: 12px; color: var(--ink-soft) }
+  .settings summary { cursor: pointer; outline: none }
+  .settings + .settings { margin-top: 8px }
+
+  .pressdays { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px }
+  .pdbtn {
+    border: 1px solid var(--line);
+    background: var(--paper);
+    color: var(--ink-soft);
+    border-radius: 7px;
+    padding: 5px 9px;
+    font-size: 11.5px;
+    cursor: pointer;
+  }
+  .pdbtn.active { background: var(--press-soft); color: var(--ink); border-color: var(--press) }
+  .pdbtn:disabled { opacity: 0.4; cursor: default }
+
+  .connectform {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .connectform label {
+    font-size: 10.5px;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .connectform input {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    color: var(--ink);
+    border-radius: 7px;
+    padding: 7px 9px;
+    font-size: 12.5px;
+    font-family: inherit;
+  }
+  .connectform .row { display: flex; gap: 8px }
+  .connectform .row input { flex: 1; min-width: 0 }
+  .connectbtn {
+    margin-top: 4px;
+    background: var(--press-soft);
+    border: 1px solid var(--press);
+    color: var(--ink);
+    border-radius: 7px;
+    padding: 7px 9px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .connecthelp { font-size: 10.5px; color: var(--ink-faint); line-height: 1.5 }
+  .connecthelp a { color: var(--ink-soft) }
+
+  .flavorwrap {
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 10px;
+    text-align: center;
+  }
+  .flavor {
+    font-family: 'Pirata One', Georgia, serif;
+    font-size: 25.5px;
+    letter-spacing: 0.02em;
+    color: var(--ink-soft);
+    line-height: 1.4;
+    text-wrap: balance;
+    max-width: 300px;
+  }
+  .flavorbtn {
+    background: none;
+    border: 1px solid var(--line);
+    color: var(--ink-soft);
+    border-radius: 7px;
+    font-size: 13px;
+    width: 26px;
+    height: 26px;
+    line-height: 1;
+    cursor: pointer;
+    flex: 0 0 auto;
+  }
+  .flavorbtn:hover { background: var(--empty) }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div class="card">
+    <div class="head">
+      <button id="prev" class="navbtn" aria-label="Previous month">‹</button>
+      <div class="monthlabel" id="monthLabel">—</div>
+      <button id="next" class="navbtn" aria-label="Next month">›</button>
+    </div>
+
+    <div class="weekdays" id="weekdays"></div>
+    <div class="grid" id="grid"></div>
+
+    <div class="legend">
+      <span class="dot done"></span> squats
+      <span class="dot press"></span> press day
+    </div>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="statnum" id="streakNum">0</div>
+        <div class="statlabel">day streak</div>
+      </div>
+      <div class="stat">
+        <div class="statnum" id="monthNum">0/0</div>
+        <div class="statlabel">this month</div>
+      </div>
+      <div class="stat">
+        <div class="statnum" id="bestNum">0</div>
+        <div class="statlabel">longest streak</div>
+      </div>
+    </div>
+
+    <div class="hint" id="hint">tap today to log it · tap again to add press day</div>
+    <div class="syncline" id="syncline"></div>
+
+    <details class="settings">
+      <summary>press days</summary>
+      <div class="pressdays" id="pressDays"></div>
+    </details>
+
+    <details class="settings" id="connectDetails">
+      <summary id="connectSummary">github connection</summary>
+      <div class="connectform">
+        <label>owner (username or org)</label>
+        <input id="ghOwner" type="text" placeholder="e.g. yourname" autocomplete="off">
+        <label>repo name</label>
+        <input id="ghRepo" type="text" placeholder="e.g. askr" autocomplete="off">
+        <label>fine-grained token (contents: read/write, this repo only)</label>
+        <input id="ghToken" type="password" placeholder="github_pat_..." autocomplete="off">
+        <button id="ghConnectBtn" class="connectbtn">save &amp; connect</button>
+        <div class="connecthelp">
+          Token needs only "Contents: Read and write" on this one repo.
+          <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Create one here</a>.
+          Stored only in this browser's local storage — never committed anywhere.
+        </div>
+      </div>
+    </details>
+
+    <div class="flavorwrap">
+      <div class="flavor" id="flavor">—</div>
+      <button id="flavorRefresh" class="flavorbtn" aria-label="New line">↻</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(async function () {
+  const DOW = ['S','M','T','W','T','F','S']
+  const DOWFULL = ['sun','mon','tue','wed','thu','fri','sat']
+  const LOG_PATH = 'data/log.csv'
+  const CONFIG_PATH = 'data/config.json'
+
+  const FLAVOR_LINES = [
+    "The wolf does not warm up. It simply runs.",
+    "Ash remembers every fire that made it.",
+    "No feast without the forging first.",
+    "The mountain was not moved by wishing.",
+    "Iron does not doubt itself into shape.",
+    "What the frost cannot kill, it tempers.",
+    "Every ruin was once someone's daily labor.",
+    "The oath is kept in small motions.",
+    "Storms do not consult the almanac.",
+    "A blade dulls only when it is put away.",
+    "Nine days weak, the tenth still rises.",
+    "Even gods stretched before the end times.",
+    "The rope holds because it was braided, not because it wished to.",
+    "Snow falls on those who moved and those who didn't — only one is warm.",
+    "The forge doesn't ask if you slept well.",
+    "A cairn is just stones that showed up.",
+    "The wolf outlasts the wish.",
+    "The body keeps its own ledger, paid in toil, not in sorrow.",
+    "The longship was rowed before it was sailed.",
+    "Rust is just iron that stopped.",
+    "Wyrd bið ful āræd."
+  ]
+
+  let today = new Date()
+  today.setHours(0,0,0,0)
+  let viewYear = today.getFullYear()
+  let viewMonth = today.getMonth()
+
+  let log = {}
+  let pressDays = [1, 3, 5]
+  let logSha = null
+  let configSha = null
+  let connected = false
+  let busy = false
+  let lastFailedRetry = null
+  let rerollOverride = null
+
+  const gh = { owner: '', repo: '', token: '' }
+
+  function noOrphan(text) {
+    const lastSpace = text.lastIndexOf(' ')
+    if (lastSpace === -1) return text
+    return text.slice(0, lastSpace) + '\u00A0' + text.slice(lastSpace + 1)
+  }
+
+  function keyFor(d) {
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return y + '-' + m + '-' + day
+  }
+
+  function dayHash(dateKey) {
+    let h = 0
+    for (let i = 0; i < dateKey.length; i++) h = (h * 31 + dateKey.charCodeAt(i)) >>> 0
+    return h
+  }
+
+  // ---- localStorage: connection settings only, never the log itself ----
+  function loadGhSettings() {
+    gh.owner = localStorage.getItem('gh-owner') || ''
+    gh.repo = localStorage.getItem('gh-repo') || ''
+    gh.token = localStorage.getItem('gh-token') || ''
+    connected = !!(gh.owner && gh.repo && gh.token)
+  }
+
+  function saveGhSettings(owner, repo, token) {
+    localStorage.setItem('gh-owner', owner)
+    localStorage.setItem('gh-repo', repo)
+    localStorage.setItem('gh-token', token)
+    gh.owner = owner; gh.repo = repo; gh.token = token
+    connected = true
+  }
+
+  // ---- GitHub Contents API ----
+  function ghHeaders() {
+    return {
+      'Authorization': 'Bearer ' + gh.token,
+      'Accept': 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28'
+    }
+  }
+
+  function utf8ToB64(str) {
+    return btoa(String.fromCharCode(...new TextEncoder().encode(str)))
+  }
+  function b64ToUtf8(b64) {
+    const bin = atob(b64.replace(/\n/g, ''))
+    const bytes = Uint8Array.from(bin, c => c.charCodeAt(0))
+    return new TextDecoder().decode(bytes)
+  }
+
+  async function ghGetFile(path) {
+    const url = 'https://api.github.com/repos/' + gh.owner + '/' + gh.repo + '/contents/' + path
+    const res = await fetch(url, { headers: ghHeaders() })
+    if (res.status === 404) return { text: null, sha: null }
+    if (!res.ok) throw new Error('GitHub read failed (' + res.status + ')')
+    const data = await res.json()
+    return { text: b64ToUtf8(data.content), sha: data.sha }
+  }
+
+  async function ghPutFile(path, text, sha, message) {
+    const url = 'https://api.github.com/repos/' + gh.owner + '/' + gh.repo + '/contents/' + path
+    const body = { message: message, content: utf8ToB64(text) }
+    if (sha) body.sha = sha
+    const res = await fetch(url, { method: 'PUT', headers: ghHeaders(), body: JSON.stringify(body) })
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '')
+      throw new Error('GitHub write failed (' + res.status + ') ' + errText.slice(0, 120))
+    }
+    const data = await res.json()
+    return data.content.sha
+  }
+
+  // ---- log <-> csv ----
+  function parseLogCsv(text) {
+    const out = {}
+    if (!text) return out
+    text.split('\n').forEach(line => {
+      const trimmed = line.trim()
+      if (!trimmed) return
+      const parts = trimmed.split(',')
+      const date = parts[0]
+      const types = parts.slice(1)
+      out[date] = { squat: types.includes('squat'), press: types.includes('press') }
+    })
+    return out
+  }
+
+  function serializeLogCsv(logObj) {
+    return Object.keys(logObj).sort().map(date => {
+      const e = logObj[date]
+      const types = []
+      if (e.squat) types.push('squat')
+      if (e.press) types.push('press')
+      return [date].concat(types).join(',')
+    }).join('\n') + '\n'
+  }
+
+  function parseConfigJson(text) {
+    if (!text) return { pressDays: [1, 3, 5] }
+    try {
+      const parsed = JSON.parse(text)
+      return { pressDays: Array.isArray(parsed.pressDays) ? parsed.pressDays : [1, 3, 5] }
+    } catch (e) { return { pressDays: [1, 3, 5] } }
+  }
+
+  function serializeConfigJson(cfg) {
+    return JSON.stringify({ pressDays: cfg.pressDays.slice().sort() }, null, 2) + '\n'
+  }
+
+  // ---- sync status UI ----
+  function setSync(state, message) {
+    const el = document.getElementById('syncline')
+    el.className = 'syncline' + (state === 'error' ? ' error' : '')
+    el.textContent = message || ''
+    el.onclick = (state === 'error' && lastFailedRetry) ? lastFailedRetry : null
+  }
+
+  function setBusy(v) {
+    busy = v
+    document.querySelectorAll('.grid .cell').forEach(c => c.classList.toggle('locked', v && !c.classList.contains('future') && !c.classList.contains('pad')))
+  }
+
+  // ---- persistence actions ----
+  async function persistLog(commitMessage) {
+    setBusy(true)
+    setSync('syncing', 'syncing…')
+    try {
+      const csv = serializeLogCsv(log)
+      logSha = await ghPutFile(LOG_PATH, csv, logSha, commitMessage)
+      setSync('idle', '')
+    } catch (e) {
+      lastFailedRetry = () => persistLog(commitMessage)
+      setSync('error', 'sync failed — tap to retry')
+      console.error(e)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function persistConfig(commitMessage) {
+    setSync('syncing', 'syncing…')
+    try {
+      const json = serializeConfigJson({ pressDays })
+      configSha = await ghPutFile(CONFIG_PATH, json, configSha, commitMessage)
+      setSync('idle', '')
+    } catch (e) {
+      lastFailedRetry = () => persistConfig(commitMessage)
+      setSync('error', 'sync failed — tap to retry')
+      console.error(e)
+    }
+  }
+
+  async function initialSync() {
+    setSync('syncing', 'connecting to github…')
+    try {
+      const [logFile, configFile] = await Promise.all([ghGetFile(LOG_PATH), ghGetFile(CONFIG_PATH)])
+      log = parseLogCsv(logFile.text)
+      logSha = logFile.sha
+      const cfg = parseConfigJson(configFile.text)
+      pressDays = cfg.pressDays
+      configSha = configFile.sha
+      setSync('idle', '')
+      document.getElementById('connectSummary').textContent = 'connected — ' + gh.owner + '/' + gh.repo
+    } catch (e) {
+      lastFailedRetry = initialSync
+      setSync('error', 'could not reach github — tap to retry')
+      console.error(e)
+    }
+  }
+
+  // ---- state logic (unchanged shape from before) ----
+  function stateOf(dateKey) {
+    const entry = log[dateKey]
+    if (!entry) return 0
+    if (entry.press) return 2
+    if (entry.squat) return 1
+    return 0
+  }
+
+  function cycleState(d) {
+    if (busy || !connected) return
+    const key = keyFor(d)
+    const isPressDay = pressDays.includes(d.getDay())
+    const current = stateOf(key)
+    let next
+    if (current === 0) next = 1
+    else if (current === 1) next = isPressDay ? 2 : 0
+    else next = 0
+    if (next === 0) delete log[key]
+    else log[key] = { squat: true, press: next === 2 }
+    render()
+    persistLog('Log ' + key + (next === 0 ? ' (cleared)' : next === 2 ? ': squat + press' : ': squat'))
+  }
+
+  function computeStreak() {
+    let streak = 0
+    let cursor = new Date(today)
+    while (true) {
+      const key = keyFor(cursor)
+      if (log[key] && log[key].squat) {
+        streak++
+        cursor.setDate(cursor.getDate() - 1)
+      } else {
+        if (keyFor(cursor) === keyFor(today)) { cursor.setDate(cursor.getDate() - 1); continue }
+        break
+      }
+    }
+    return streak
+  }
+
+  function computeBestStreak() {
+    const keys = Object.keys(log).filter(k => log[k].squat).sort()
+    if (keys.length === 0) return 0
+    let best = 1, run = 1
+    for (let i = 1; i < keys.length; i++) {
+      const diff = Math.round((new Date(keys[i]) - new Date(keys[i-1])) / 86400000)
+      if (diff === 1) { run++; best = Math.max(best, run) } else run = 1
+    }
+    return Math.max(best, run)
+  }
+
+  function computeMonthCount() {
+    const y = viewYear, m = viewMonth
+    const daysInMonth = new Date(y, m + 1, 0).getDate()
+    let done = 0, elapsed = 0
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dt = new Date(y, m, d)
+      if (dt > today) continue
+      elapsed++
+      if (log[keyFor(dt)] && log[keyFor(dt)].squat) done++
+    }
+    return { done, elapsed }
+  }
+
+  function renderFlavor() {
+    const todayKey = keyFor(today)
+    const index = rerollOverride !== null ? rerollOverride : (dayHash(todayKey) % FLAVOR_LINES.length)
+    document.getElementById('flavor').textContent = noOrphan(FLAVOR_LINES[index])
+  }
+
+  function rerollFlavor() {
+    const todayKey = keyFor(today)
+    const current = rerollOverride !== null ? rerollOverride : (dayHash(todayKey) % FLAVOR_LINES.length)
+    let next = Math.floor(Math.random() * FLAVOR_LINES.length)
+    if (FLAVOR_LINES.length > 1) while (next === current) next = Math.floor(Math.random() * FLAVOR_LINES.length)
+    rerollOverride = next
+    renderFlavor()
+  }
+
+  function renderWeekdays() {
+    document.getElementById('weekdays').innerHTML = DOW.map(d => '<div>' + d + '</div>').join('')
+  }
+
+  function render() {
+    const monthLabel = document.getElementById('monthLabel')
+    const names = ['January','February','March','April','May','June','July','August','September','October','November','December']
+    monthLabel.textContent = names[viewMonth] + ' ' + viewYear
+
+    const grid = document.getElementById('grid')
+    grid.innerHTML = ''
+
+    const firstOfMonth = new Date(viewYear, viewMonth, 1)
+    const startPad = firstOfMonth.getDay()
+    const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate()
+
+    for (let i = 0; i < startPad; i++) {
+      const pad = document.createElement('div')
+      pad.className = 'cell pad'
+      grid.appendChild(pad)
+    }
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateObj = new Date(viewYear, viewMonth, d)
+      const key = keyFor(dateObj)
+      const isFuture = dateObj > today
+      const isToday = keyFor(dateObj) === keyFor(today)
+      const isPressDay = pressDays.includes(dateObj.getDay())
+      const state = stateOf(key)
+
+      const cell = document.createElement('div')
+      cell.className = 'cell state-' + state + (isFuture ? ' future' : '') + (isToday ? ' today' : '')
+      cell.innerHTML = '<div class="fill"></div><span class="num">' + d + '</span>' +
+        (isPressDay && !isFuture ? '<span class="pressmark" style="opacity:' + (state === 2 ? '0' : '0.6') + '"></span>' : '')
+
+      if (!isFuture) cell.addEventListener('click', () => cycleState(dateObj))
+      grid.appendChild(cell)
+    }
+
+    document.getElementById('next').disabled = (viewYear === today.getFullYear() && viewMonth === today.getMonth())
+
+    const streak = computeStreak()
+    document.getElementById('streakNum').textContent = streak
+
+    const { done, elapsed } = computeMonthCount()
+    document.getElementById('monthNum').textContent = done + '/' + elapsed
+    document.getElementById('bestNum').textContent = computeBestStreak()
+
+    const hint = document.getElementById('hint')
+    hint.textContent = connected
+      ? (streak === 0 ? 'no streak running — tap today whenever you\'re ready' : 'tap today to log it · tap again on press days')
+      : 'connect to github below to start logging'
+
+    renderPressDays()
+  }
+
+  function renderPressDays() {
+    const el = document.getElementById('pressDays')
+    el.innerHTML = ''
+    DOWFULL.forEach((name, idx) => {
+      const btn = document.createElement('button')
+      btn.className = 'pdbtn' + (pressDays.includes(idx) ? ' active' : '')
+      btn.textContent = name
+      btn.disabled = !connected
+      btn.addEventListener('click', () => {
+        if (pressDays.includes(idx)) pressDays = pressDays.filter(x => x !== idx)
+        else pressDays = pressDays.concat([idx]).sort()
+        render()
+        persistConfig('Update press days')
+      })
+      el.appendChild(btn)
+    })
+  }
+
+  document.getElementById('prev').addEventListener('click', () => {
+    viewMonth--
+    if (viewMonth < 0) { viewMonth = 11; viewYear-- }
+    render()
+  })
+  document.getElementById('next').addEventListener('click', () => {
+    if (viewYear === today.getFullYear() && viewMonth === today.getMonth()) return
+    viewMonth++
+    if (viewMonth > 11) { viewMonth = 0; viewYear++ }
+    render()
+  })
+
+  document.getElementById('flavorRefresh').addEventListener('click', rerollFlavor)
+
+  document.getElementById('ghConnectBtn').addEventListener('click', async () => {
+    const owner = document.getElementById('ghOwner').value.trim()
+    const repo = document.getElementById('ghRepo').value.trim()
+    const token = document.getElementById('ghToken').value.trim()
+    if (!owner || !repo || !token) {
+      setSync('error', 'fill in owner, repo, and token')
+      return
+    }
+    saveGhSettings(owner, repo, token)
+    document.getElementById('connectDetails').removeAttribute('open')
+    render()
+    await initialSync()
+    render()
+  })
+
+  renderWeekdays()
+  loadGhSettings()
+  if (connected) {
+    document.getElementById('ghOwner').value = gh.owner
+    document.getElementById('ghRepo').value = gh.repo
+    document.getElementById('ghToken').value = gh.token
+    document.getElementById('connectSummary').textContent = 'connected — ' + gh.owner + '/' + gh.repo
+    render()
+    await initialSync()
+  } else {
+    document.getElementById('connectDetails').setAttribute('open', '')
+  }
+  render()
+  renderFlavor()
+})()
+</script>
+</body>
+</html>
